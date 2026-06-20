@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>钢琴键盘</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #fff;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ── 顶部控制栏 ── */
+  #top-bar {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: max(12px, env(safe-area-inset-right));
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  /* ── 调式选择器 ── */
+  #key-selector {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 12px max(16px, env(safe-area-inset-left));
+    scrollbar-width: none;
+  }
+  #key-selector::-webkit-scrollbar { display: none; }
+
+  #key-selector-inner {
+    display: flex;
+    gap: 8px;
+    min-width: max-content;
+  }
+
+  .key-btn {
+    padding: 7px 15px;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 13px;
+    border: 1.5px solid #d1d5db;
+    background: #fff;
+    color: #000;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .key-btn.active {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+  }
+
+  #number-toggle {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border-radius: 9999px;
+    font-weight: 600;
+    font-size: 13px;
+    border: 1.5px solid #d1d5db;
+    background: #fff;
+    color: #000;
+    cursor: pointer;
+  }
+  #number-toggle.active {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+  }
+
+  /* ── 钢琴区域 ── */
+  #piano-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* 键盘滚动容器 */
+  #kb-scroll {
+    flex: 1;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    touch-action: none;
+    background: #fff;
+  }
+  #kb-scroll::-webkit-scrollbar { display: none; }
+
+  /* 键盘内层 */
+  #kb-inner {
+    position: relative;
+    height: 100%;
+    min-height: 200px;
+  }
+
+  /* 白键 */
+  .wkey {
+    position: absolute;
+    top: 16px;
+    bottom: 0;
+    background: #fff;
+    border: 1.5px solid #000;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    cursor: pointer;
+    z-index: 1;
+    touch-action: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 10px;
+    transition: background 0.05s;
+  }
+  .wkey.in-scale {
+    background: #fffbe6;
+    border-color: #d4a017;
+  }
+  .wkey.pressed {
+    background: #f5c842 !important;
+    box-shadow: none;
+    border-color: #b8860b !important;
+  }
+  .wkey .note-num {
+    display: none;
+    font-weight: 700;
+    font-size: 14px;
+    color: #000;
+    pointer-events: none;
+  }
+
+  /* 黑键 */
+  .bkey {
+    position: absolute;
+    top: 16px;
+    background: #000;
+    border: 1.5px solid #000;
+    border-radius: 0 0 5px 5px;
+    cursor: pointer;
+    z-index: 10;
+    touch-action: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 8px;
+    transition: background 0.05s;
+  }
+  .bkey.in-scale {
+    background: #92610a;
+  }
+  .bkey.pressed {
+    background: #b8860b !important;
+    box-shadow: none;
+  }
+  .bkey .note-num {
+    display: none;
+    font-weight: 700;
+    font-size: 11px;
+    color: #fff;
+    pointer-events: none;
+  }
+  body.show-numbers .note-num { display: block; }
+
+</style>
+</head>
+<body>
+
+<!-- 顶部控制栏 -->
+<div id="top-bar">
+  <div id="key-selector">
+    <div id="key-selector-inner"></div>
+  </div>
+  <button id="number-toggle" type="button" aria-pressed="false">数字</button>
+</div>
+
+<!-- 钢琴区域 -->
+<div id="piano-area">
+  <div id="kb-scroll">
+    <div id="kb-inner"></div>
+  </div>
+
+</div>
+
+<script>
+// ── 音乐常量 ──────────────────────────────────────────────
+const KEY_LABELS     = ["C","C#/D♭","D","D#/E♭","E","F","F#/G♭","G","G#/A♭","A","A#/B♭","B"];
+const SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+const BLACK_PCS      = new Set([1, 3, 6, 8, 10]);
+
+const START_MIDI = 21;  // A0 — 标准88键钢琴起点
+const TOTAL      = 88;  // A0 (21) → C8 (108)
+
+const WHITE_KEY_W = 56;
+const BLACK_KEY_W = 34;
+const PAD         = 16;
+
+// 生成所有音符信息
+const allKeys = [];
+for (let i = 0; i < TOTAL; i++) {
+  const midi = START_MIDI + i;
+  const pc   = midi % 12;
+  allKeys.push({ midi, pc, isBlack: BLACK_PCS.has(pc) });
+}
+const whiteKeys = allKeys.filter(k => !k.isBlack);
+const blackKeys = allKeys.filter(k =>  k.isBlack);
+const kbWidth   = whiteKeys.length * WHITE_KEY_W;
+
+// ── 状态 ─────────────────────────────────────────────────
+let selectedRoot = 0;          // 当前调式根音（0=C）
+let scaleDegrees = new Map();  // pitchClass → 1~7
+let audioCtx     = null;
+const oscMap     = new Map();  // midi → {osc, gain}
+const pressed    = new Set();  // 当前按下的 midi
+
+// ── Web Audio ─────────────────────────────────────────────
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+// ── 卡林巴音色引擎 ────────────────────────────────────────
+// 按键即拨弦，声音自然衰减 3 秒；抬手只撤销高亮，声音继续消散
+const DECAY = 3.0;
+
+function playNote(midi) {
+  initAudio();
+  // 已在响 → 重新拨弦
+  const prev = oscMap.get(midi);
+  if (prev) {
+    clearTimeout(prev.tid);
+    prev.oscs.forEach(o => { try { o.stop(); } catch {} });
+    oscMap.delete(midi);
+  }
+
+  const t    = audioCtx.currentTime;
+  const freq = 440 * Math.pow(2, (midi - 69) / 12);
+
+  // 主音（基频正弦）— 温暖长响
+  const master = audioCtx.createGain();
+  master.connect(audioCtx.destination);
+  master.gain.setValueAtTime(0, t);
+  master.gain.linearRampToValueAtTime(0.38, t + 0.004);
+  master.gain.exponentialRampToValueAtTime(0.001, t + DECAY);
+
+  const osc1 = audioCtx.createOscillator();
+  osc1.type = "sine";
+  osc1.frequency.value = freq;
+  osc1.connect(master);
+  osc1.start(t);
+  osc1.stop(t + DECAY + 0.05);
+
+  // 泛音（×4.03，微失谐）— 拨弦瞬间的金属质感，衰减极快
+  const twang = audioCtx.createGain();
+  twang.connect(audioCtx.destination);
+  twang.gain.setValueAtTime(0, t);
+  twang.gain.linearRampToValueAtTime(0.12, t + 0.003);
+  twang.gain.exponentialRampToValueAtTime(0.001, t + DECAY / 6);
+
+  const osc2 = audioCtx.createOscillator();
+  osc2.type = "sine";
+  osc2.frequency.value = freq * 4.03;
+  osc2.connect(twang);
+  osc2.start(t);
+  osc2.stop(t + DECAY / 6 + 0.05);
+
+  const tid = setTimeout(() => {
+    oscMap.delete(midi);
+    updateKeyVisual(midi, false);
+  }, (DECAY + 0.2) * 1000);
+
+  oscMap.set(midi, { oscs: [osc1, osc2], gain: master, tid });
+  pressed.add(midi);
+  updateKeyVisual(midi, true);
+}
+
+function stopNote(midi) {
+  // 卡林巴：抬手只撤销高亮，声音继续自然衰减
+  pressed.delete(midi);
+  updateKeyVisual(midi, false);
+}
+
+function updateKeyVisual(midi, on) {
+  const el = document.getElementById("k" + midi);
+  if (!el) return;
+  if (on) el.classList.add("pressed");
+  else    el.classList.remove("pressed");
+}
+
+// ── 调式计算 ──────────────────────────────────────────────
+function buildScaleDegrees(root) {
+  const m = new Map();
+  SCALE_INTERVALS.forEach((iv, i) => m.set((root + iv) % 12, i + 1));
+  return m;
+}
+
+function updateNotationLabels() {
+  scaleDegrees = buildScaleDegrees(selectedRoot);
+  allKeys.forEach(({ midi, pc, isBlack }) => {
+    const keyEl = document.getElementById("k" + midi);
+    const numEl = document.getElementById("n" + midi);
+    if (!keyEl || !numEl) return;
+    const deg = scaleDegrees.get(pc);
+    numEl.textContent = deg ? String(deg) : "";
+    if (deg) keyEl.classList.add("in-scale");
+    else      keyEl.classList.remove("in-scale");
+  });
+}
+
+// ── 构建键盘 DOM ──────────────────────────────────────────
+// 键元素设 pointer-events:none，由容器统一处理所有事件
+function buildKeyboard() {
+  const inner = document.getElementById("kb-inner");
+  inner.style.width = (kbWidth + PAD * 2) + "px";
+
+  // 白键
+  whiteKeys.forEach((key, i) => {
+    const el = document.createElement("div");
+    el.className = "wkey";
+    el.id = "k" + key.midi;
+    el.dataset.midi = key.midi;
+    el.style.left  = (PAD + i * WHITE_KEY_W) + "px";
+    el.style.width = (WHITE_KEY_W - 1) + "px";
+    el.style.pointerEvents = "none";   // 容器接管事件
+
+    const num = document.createElement("span");
+    num.className = "note-num";
+    num.id = "n" + key.midi;
+    el.appendChild(num);
+    inner.appendChild(el);
+  });
+
+  // 黑键
+  blackKeys.forEach((key) => {
+    const prevWIdx = whiteKeys.findIndex(w => w.midi === key.midi - 1);
+    if (prevWIdx === -1) return;
+
+    const el = document.createElement("div");
+    el.className = "bkey";
+    el.id = "k" + key.midi;
+    el.dataset.midi = key.midi;
+    el.style.left   = (PAD + prevWIdx * WHITE_KEY_W + WHITE_KEY_W - Math.floor(BLACK_KEY_W / 2)) + "px";
+    el.style.width  = BLACK_KEY_W + "px";
+    el.style.height = "60%";
+    el.style.pointerEvents = "none";   // 容器接管事件
+
+    const num = document.createElement("span");
+    num.className = "note-num";
+    num.id = "n" + key.midi;
+    el.appendChild(num);
+    inner.appendChild(el);
+  });
+}
+
+// ── 容器级手势事件 ────────────────────────────────────────
+// 规则：横划幅度 > 14px 且大于纵向 1.5 倍 → 滚动键盘
+//       其余 → 演奏 / 滑奏（glissando）
+const kbScroll     = document.getElementById("kb-scroll");
+const pointerMidi  = new Map(); // pointerId → midi
+const pointerState = new Map(); // pointerId → { startX, startY, startScroll, mode }
+const SCROLL_THRESHOLD = 14;
+
+function getMidiAtPoint(x, y) {
+  const rect   = kbScroll.getBoundingClientRect();
+  const localX = x - rect.left + kbScroll.scrollLeft - PAD;
+  const localY = y - rect.top;
+  const innerH = rect.height;
+
+  // 黑键优先
+  for (const key of blackKeys) {
+    const prevWIdx = whiteKeys.findIndex(w => w.midi === key.midi - 1);
+    if (prevWIdx === -1) continue;
+    const kLeft = prevWIdx * WHITE_KEY_W + WHITE_KEY_W - Math.floor(BLACK_KEY_W / 2);
+    const kH    = innerH * 0.6;
+    if (localX >= kLeft && localX <= kLeft + BLACK_KEY_W &&
+        localY >= 16    && localY <= 16 + kH) {
+      return key.midi;
+    }
+  }
+  // 白键
+  for (let i = 0; i < whiteKeys.length; i++) {
+    const kLeft = i * WHITE_KEY_W;
+    if (localX >= kLeft && localX <= kLeft + WHITE_KEY_W - 1) {
+      return whiteKeys[i].midi;
+    }
+  }
+  return null;
+}
+
+kbScroll.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  const midi = getMidiAtPoint(e.clientX, e.clientY);
+  if (midi !== null) {
+    pointerMidi.set(e.pointerId, midi);
+    playNote(midi);
+  }
+  pointerState.set(e.pointerId, {
+    startX: e.clientX, startY: e.clientY,
+    startScroll: kbScroll.scrollLeft, mode: "playing",
+  });
+}, { passive: false });
+
+kbScroll.addEventListener("pointermove", (e) => {
+  const state = pointerState.get(e.pointerId);
+  if (!state) return;
+
+  const dx    = e.clientX - state.startX;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(e.clientY - state.startY);
+
+  // 检测到横划 → 切换为滚动模式
+  if (state.mode === "playing" && absDx > SCROLL_THRESHOLD && absDx > absDy * 1.5) {
+    state.mode = "scrolling";
+    const midi = pointerMidi.get(e.pointerId);
+    if (midi !== undefined) { stopNote(midi); pointerMidi.delete(e.pointerId); }
+  }
+
+  if (state.mode === "scrolling") {
+    kbScroll.scrollLeft = state.startScroll - dx;
+  } else {
+    // 滑奏
+    const midi = getMidiAtPoint(e.clientX, e.clientY);
+    if (midi === null) return;
+    const prev = pointerMidi.get(e.pointerId);
+    if (prev !== undefined && midi !== prev) {
+      stopNote(prev);
+      playNote(midi);
+      pointerMidi.set(e.pointerId, midi);
+    }
+  }
+}, { passive: false });
+
+function releasePointer(e) {
+  const midi = pointerMidi.get(e.pointerId);
+  if (midi !== undefined) { stopNote(midi); pointerMidi.delete(e.pointerId); }
+  pointerState.delete(e.pointerId);
+}
+kbScroll.addEventListener("pointerup",     releasePointer);
+kbScroll.addEventListener("pointercancel", releasePointer);
+
+// ── 调式选择器 ────────────────────────────────────────────
+function buildKeySelector() {
+  const inner = document.getElementById("key-selector-inner");
+  KEY_LABELS.forEach((label, i) => {
+    const btn = document.createElement("button");
+    btn.className = "key-btn" + (i === 0 ? " active" : "");
+    btn.textContent = label;
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".key-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      selectedRoot = i;
+      updateNotationLabels();
+    });
+    inner.appendChild(btn);
+  });
+}
+
+document.getElementById("number-toggle").addEventListener("click", (event) => {
+  const showing = document.body.classList.toggle("show-numbers");
+  event.currentTarget.classList.toggle("active", showing);
+  event.currentTarget.setAttribute("aria-pressed", String(showing));
+});
+
+
+// ── 初始化 ────────────────────────────────────────────────
+buildKeySelector();
+buildKeyboard();
+updateNotationLabels();
+
+// 滚动到中央C（C4 = MIDI 60）居中
+(function scrollToMiddleC() {
+  const c4Idx = whiteKeys.findIndex(k => k.midi === 60);
+  if (c4Idx === -1) return;
+  const keyCenter = PAD + c4Idx * WHITE_KEY_W + WHITE_KEY_W / 2;
+  kbScroll.scrollLeft = keyCenter - kbScroll.clientWidth / 2;
+})();
+</script>
+</body>
+</html>
