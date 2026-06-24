@@ -194,21 +194,20 @@
   body.show-numbers .note-num { display: block; }
 
   /* 音阶级数的七色提示：1 到 7 对应赤、橙、黄、绿、青、蓝、紫。 */
-  body.show-degree-colors .degree-1 { --degree-color: #e53935; --degree-label: #fff; }
-  body.show-degree-colors .degree-2 { --degree-color: #fb8c00; --degree-label: #fff; }
-  body.show-degree-colors .degree-3 { --degree-color: #f6c945; --degree-label: #1a1a1a; }
-  body.show-degree-colors .degree-4 { --degree-color: #43a047; --degree-label: #fff; }
-  body.show-degree-colors .degree-5 { --degree-color: #00a6a6; --degree-label: #fff; }
-  body.show-degree-colors .degree-6 { --degree-color: #1e88e5; --degree-label: #fff; }
-  body.show-degree-colors .degree-7 { --degree-color: #8e44ad; --degree-label: #fff; }
+  body.show-degree-colors .degree-1 { --degree-color: rgb(229 57 53 / 38%); --degree-border: rgb(229 57 53 / 70%); }
+  body.show-degree-colors .degree-2 { --degree-color: rgb(251 140 0 / 38%); --degree-border: rgb(251 140 0 / 70%); }
+  body.show-degree-colors .degree-3 { --degree-color: rgb(246 201 69 / 42%); --degree-border: rgb(246 201 69 / 76%); }
+  body.show-degree-colors .degree-4 { --degree-color: rgb(67 160 71 / 38%); --degree-border: rgb(67 160 71 / 70%); }
+  body.show-degree-colors .degree-5 { --degree-color: rgb(0 166 166 / 38%); --degree-border: rgb(0 166 166 / 70%); }
+  body.show-degree-colors .degree-6 { --degree-color: rgb(30 136 229 / 38%); --degree-border: rgb(30 136 229 / 70%); }
+  body.show-degree-colors .degree-7 { --degree-color: rgb(142 68 173 / 38%); --degree-border: rgb(142 68 173 / 70%); }
 
   body.show-degree-colors .degree-color {
     background: var(--degree-color);
-    border-color: var(--degree-color);
+    border-color: var(--degree-border);
   }
-  body.show-degree-colors .degree-color .note-num {
-    color: var(--degree-label);
-  }
+  body.show-degree-colors .wkey.degree-color .note-num { color: #1a1a1a; }
+  body.show-degree-colors .bkey.degree-color .note-num { color: #fff; }
 
 </style>
 </head>
